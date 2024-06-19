@@ -1,0 +1,74 @@
+---
+- name: Set kubeadmjoin_retry_count count
+  ansible.builtin.set_fact:
+    kubeadmjoin_retry_count: "{{ 1 if kubeadmjoin_retry_count is undefined else kubeadmjoin_retry_count|int + 1 }}"
+
+# Determine if kubeadm did run on this node and it was a success
+- name: Check for the presence of /etc/kubernetes/admin.conf {{ ansible_hostname }}
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: admin_conf
+  ignore_errors: true
+
+- name: Verify the kubelet service status {{ ansible_hostname }}
+  ansible.builtin.systemd:
+    name: kubelet
+    state: started
+    enabled: yes
+  register: kubelet_status
+  ignore_errors: true
+
+- name: Kubectl check the node status {{ ansible_hostname }}
+  ansible.builtin.command: kubectl get node {{ ansible_hostname }}
+  register: kubectl_node_status
+  failed_when: kubectl_node_status.rc != 0 and admin_conf.stat.exists
+  when: admin_conf.stat.exists
+  ignore_errors: true
+
+- name: Determine if kubeadm did run successfully on {{ ansible_hostname }}
+  ansible.builtin.set_fact:
+    kubeadm_ran_successfully: "{{ admin_conf.stat.exists and kubelet_status is succeeded and kubectl_node_status.rc == 0 }}"
+
+- name: Kubeadm already ran, set kubeadmjoin_retry_count to max value to exit loop
+  when:
+    - kubeadm_ran_successfully
+  ansible.builtin.set_fact:
+    kubeadmjoin_retry_count: "{{ kubeadmin_init_no_of_retries|int + 1 }}"
+# End Determine if kubeadm did run on this node and it was a success
+
+- name: Run kubeadm join on node {{ ansible_hostname }}
+  ansible.builtin.command: "{{ hostvars[groups['k8s_controlplanes'][0]]['kubernetes_join_command'].stdout }} --control-plane \
+            --cri-socket unix:///var/run/crio/crio.sock \
+            --apiserver-advertise-address=\"{{ default_network_interface_ip }}\" \
+            --certificate-key {{ hostvars[groups['k8s_controlplanes'][0]]['kubernetes_uploadcert_command'].stdout_lines[-1] | trim }} \
+            --node-name \"{{ ansible_hostname }}\" "
+  register: kubeadm_join_result
+  when:
+    - kubeadmjoin_retry_count|int <= kubeadmin_join_no_of_retries|int
+  ignore_errors: true
+
+- name: kubeadm join error, running kubeadm reset
+  ansible.builtin.command: kubeadm reset -f
+  when: 
+    - kubeadm_join_result is failed
+    - kubeadmjoin_retry_count|int < kubeadmin_join_no_of_retries|int
+
+- name: "kubeadm join error, pause {{ kubeadmin_join_delay_between_retries|int }} seconds"
+  ansible.builtin.pause: 
+    seconds: "{{ kubeadmin_join_delay_between_retries|int }}"
+  when: 
+    - kubeadm_join_result is failed
+    - kubeadmjoin_retry_count|int < kubeadmin_join_no_of_retries|int
+
+- name: Trying again to run kubeadm join
+  ansible.builtin.include_tasks: kubeadm_join_secondary_nodes_k8s_controlplane_commands.yml
+  when: 
+    - kubeadm_join_result is failed
+    - kubeadmjoin_retry_count|int < kubeadmin_join_no_of_retries|int
+
+- name: kubeadm join success, set kubeadmjoin_retry_count to max value in order to exit loop
+  when: 
+    - kubeadm_join_result is success
+    - kubeadmjoin_retry_count|int < kubeadmin_join_no_of_retries|int
+  ansible.builtin.set_fact:
+    kubeadmjoin_retry_count: kubeadmin_join_no_of_retries|int

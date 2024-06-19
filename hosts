@@ -1,0 +1,13 @@
+[k8s_controlplanes]
+node1 ansible_ssh_user=vagrant
+node2 ansible_ssh_user=vagrant
+node3 ansible_ssh_user=vagrant
+
+[k8s_workers]
+node4 ansible_ssh_user=vagrant
+node5 ansible_ssh_user=vagrant
+node6 ansible_ssh_user=vagrant
+
+[k8s_common:children]
+k8s_controlplanes
+k8s_workers

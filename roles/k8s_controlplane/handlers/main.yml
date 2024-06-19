@@ -1,0 +1,16 @@
+---
+# handlers file for control-plane
+- name: Restart keepalived
+  ansible.builtin.service:
+    name: "keepalived"
+    state: restarted
+
+- name: Restart haproxy
+  ansible.builtin.service:
+    name: "haproxy"
+    state: restarted
+
+- name: Reload firewalld
+  ansible.builtin.service:
+    name: "firewalld"
+    state: restarted

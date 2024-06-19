@@ -1,0 +1,8 @@
+---
+# run all playbooks to boostrap the k8s cluster
+- import_playbook: k8s_controlplane.yml
+#- import_playbook: k8s_worker.yml
+
+
+
+

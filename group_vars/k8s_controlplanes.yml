@@ -1,0 +1,6 @@
+---
+kubeadmin_init_no_of_retries: 3
+kubeadmin_init_delay_between_retries: 5
+
+kubeadmin_join_no_of_retries: 3
+kubeadmin_join_delay_between_retries: 5

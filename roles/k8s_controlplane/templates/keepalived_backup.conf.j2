@@ -1,0 +1,29 @@
+! /etc/keepalived/keepalived.conf
+! Configuration File for keepalived
+global_defs {
+  router_id K8S_CLUSTER
+}
+vrrp_script check_apiserver {
+    script "/etc/keepalived/check_apiserver.sh"
+    interval 3
+    weight -2
+    fall 2
+    rise 2
+}
+
+vrrp_instance VI_1 {
+    state BACKUP
+    interface {{ default_network_interface_name }}
+    virtual_router_id 51
+    priority 100
+    authentication {
+      auth_type PASS
+      auth_pass mylongpass
+    }
+    virtual_ipaddress {
+      {{ kube_apiserver_lb_ip }} dev {{ default_network_interface_name }}
+    }
+    track_script {
+      check_apiserver
+    }
+}

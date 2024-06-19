@@ -1,0 +1,12 @@
+- name: Install yum-utils, nano, curl, nmap, tcpdump, strace
+  ansible.builtin.yum:
+    name:
+      - yum-utils
+      - nano
+      - curl
+      - nmap
+      - tcpdump
+      - strace
+      - firewalld
+      - mc
+    state: present

@@ -1,0 +1,70 @@
+---
+- name: Install keepalived and haproxy packages on control plane nodes
+  when: inventory_hostname in groups['k8s_controlplanes']
+  ansible.builtin.yum:
+    name:
+      - keepalived
+      - haproxy
+    state: present
+
+- name: Add firewalld rule for vrrp traffic
+  ansible.posix.firewalld:
+    rich_rule: rule protocol value="vrrp" accept
+    zone: public
+    permanent: true
+    immediate: true
+    state: enabled
+
+- name: Create keepalived healthcheck script for kube-apiserver on control plane nodes
+  when: inventory_hostname in groups['k8s_controlplanes']
+  ansible.builtin.template:
+    src: templates/check_apiserver.sh.j2
+    dest: /etc/keepalived/check_apiserver.sh
+    owner: root
+    group: root
+    mode: '0744'
+
+- name: Config file for keepalived on control plane MASTER node
+  when: inventory_hostname in groups['k8s_controlplanes'][0]
+  notify: Restart keepalived
+  ansible.builtin.template:
+    src: templates/keepalived_master.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Config file for keepalived on control plane BACKUP nodes
+  when: inventory_hostname in groups['k8s_controlplanes'][1:]
+  notify: Restart keepalived
+  ansible.builtin.template:
+    src: templates/keepalived_backup.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Config file for haproxy on control plane nodes
+  when: inventory_hostname in groups['k8s_controlplanes']
+  notify: Restart haproxy
+  ansible.builtin.template:
+    src: templates/haproxy.conf.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Start keepalived service
+  when: inventory_hostname in groups['k8s_controlplanes']
+  ansible.builtin.service:
+    name: "keepalived"
+    enabled: true
+    state: started
+
+- name: Start haproxy service
+  when: inventory_hostname in groups['k8s_controlplanes']
+  ansible.builtin.service:
+    name: "haproxy"
+    enabled: true
+    state: started
+

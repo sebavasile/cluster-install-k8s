@@ -1,0 +1,54 @@
+- name: Add kernel module overlay
+  community.general.modprobe:
+    name: overlay
+    state: present
+    persistent: present
+
+- name: Add kernel module br_netfilter
+  community.general.modprobe:
+    name: br_netfilter
+    state: present
+    persistent: present
+
+- name: Set ip forwarding on in /proc and reload is necessary
+  ansible.posix.sysctl:
+      name: net.ipv4.ip_forward
+      value: '1'
+      sysctl_set: true
+      reload: true
+
+- name: Set net.bridge.bridge-nf-call-iptables to 1 and reload is necessary
+  ansible.posix.sysctl:
+      name: net.bridge.bridge-nf-call-iptables
+      value: '1'
+      sysctl_set: true
+      reload: true
+
+- name: Set net.bridge.bridge-nf-call-ip6tables to 1 and reload is necessary
+  ansible.posix.sysctl:
+    name: net.bridge.bridge-nf-call-ip6tables
+    value: '1'
+    sysctl_set: true
+    reload: true
+
+- name: Add CRI-O repository
+  ansible.builtin.yum_repository:
+    name: cri-o
+    description: "CRI-O repository"
+    baseurl: "{{ crio_repository_baseurl }}"
+    state: present
+    enabled: true
+    gpgcheck: true
+    gpgkey: "{{ crio_repository_gpgkey }}"
+
+- name: Install cri-o
+  ansible.builtin.yum:
+    name:
+      - cri-o
+    state: present
+
+- name: Start cri-o
+  ansible.builtin.service:
+    name: "crio"
+    enabled: true
+    state: started

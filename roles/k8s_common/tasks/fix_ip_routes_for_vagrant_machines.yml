@@ -1,0 +1,16 @@
+---
+- name: Test if vagrant machine
+  ansible.builtin.stat:
+    path: /etc/vagrant_box_build_time
+  register: vagrant_box_build_time
+  ignore_errors: true
+
+- name: Delete default route for eth0
+  ansible.builtin.command: route del default eth0
+  when: vagrant_box_build_time.stat.exists
+  ignore_errors: true
+
+- name: Add default route for eth1
+  ansible.builtin.command: route add default gw 192.168.0.1 dev eth0
+  when: vagrant_box_build_time.stat.exists
+  ignore_errors: true

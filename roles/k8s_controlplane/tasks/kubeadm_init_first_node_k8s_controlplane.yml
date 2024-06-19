@@ -1,0 +1,9 @@
+---
+- name: "Run kubeadm init up to {{kubeadmin_init_no_of_retries|int}} times"
+  when: inventory_hostname in groups['k8s_controlplanes'][0]
+  ansible.builtin.import_tasks: kubeadm_init_first_node_k8s_controlplane_commands.yml
+
+# TODO: Maybe comment or delete?
+- name: Debug
+  ansible.builtin.debug:
+    var: kubeadm_init_result.stdout

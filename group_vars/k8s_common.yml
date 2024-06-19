@@ -1,0 +1,17 @@
+---
+kubernetes_version: v1.30
+
+kubernetes_repository_baseurl: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/rpm/"
+kubernetes_repository_gpg_key: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/rpm/repodata/repomd.xml.key"
+
+crio_repository_baseurl: https://download.opensuse.org/repositories/devel:/kubic:/libcontainers%3A/stable%3A/cri-o%3A/1.27/CentOS_8/
+crio_repository_gpgkey: https://download.opensuse.org/repositories/devel:/kubic:/libcontainers%3A/stable%3A/cri-o%3A/1.27/CentOS_8/repodata/repomd.xml.key
+
+#VIP ip/port used in haproxy / keepalived load balancing
+kube_apiserver_lb_ip: 192.168.0.150
+kube_apiserver_lb_port: 443
+
+#port that kube_apiserver will bind to
+kube_apiserver_port: 6443
+
+pod_network_subnet: 10.10.10.0/24

@@ -1,0 +1,92 @@
+---
+- name: Set kubeadminit_retry_count count
+  ansible.builtin.set_fact:
+    kubeadminit_retry_count: "{{ 1 if kubeadminit_retry_count is undefined else kubeadminit_retry_count|int + 1 }}"
+
+# Determine if kubeadm did run on this node and it was a success
+- name: Check for the presence of /etc/kubernetes/admin.conf {{ ansible_hostname }}
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: admin_conf
+  ignore_errors: true
+
+- name: Verify the kubelet service status {{ ansible_hostname }}
+  ansible.builtin.systemd:
+    name: kubelet
+    state: started
+    enabled: yes
+  register: kubelet_status
+  ignore_errors: true
+
+- name: Kubectl check the node status {{ ansible_hostname }}
+  ansible.builtin.command: kubectl get node {{ ansible_hostname }}
+  register: kubectl_node_status
+  failed_when: kubectl_node_status.rc != 0 and admin_conf.stat.exists
+  when: admin_conf.stat.exists
+  ignore_errors: true
+
+- name: Determine if kubeadm did run successfully on {{ ansible_hostname }}
+  ansible.builtin.set_fact:
+    kubeadm_ran_successfully: "{{ admin_conf.stat.exists and kubelet_status is succeeded and kubectl_node_status.rc == 0 }}"
+
+- name: Kubeadm already ran, set kubeadminit_retry_count to max value to exit loop
+  when:
+    - kubeadm_ran_successfully
+  ansible.builtin.set_fact:
+    kubeadminit_retry_count: "{{ kubeadmin_init_no_of_retries|int + 1 }}"
+
+# End Determine if kubeadm did run on this node and it was a success
+
+- name: Run kubeadm init on first control plane {{ ansible_hostname }} kubeadminit_retry_count {{ kubeadminit_retry_count }} kubeadmin_init_no_of_retries {{ kubeadmin_init_no_of_retries }}
+  ansible.builtin.command: kubeadm init --cri-socket unix:///var/run/crio/crio.sock \
+            --apiserver-advertise-address="{{ default_network_interface_ip }}" \
+            --control-plane-endpoint="{{ kube_apiserver_lb_ip }}:{{ kube_apiserver_lb_port }}" \
+            --apiserver-cert-extra-sans="{{ kube_apiserver_lb_ip }}" \
+            --pod-network-cidr="{{ pod_network_subnet }}" \
+            --node-name "{{ ansible_hostname }}" \
+            --upload-certs
+  register: kubeadm_init_result
+  when:
+    - kubeadminit_retry_count|int <= kubeadmin_init_no_of_retries|int
+  ignore_errors: true
+
+- name: ERROR during kubeadm init, retry {{ kubeadminit_retry_count }}
+  when:
+    - kubeadm_init_result is failed  
+    - kubeadminit_retry_count|int < kubeadmin_init_no_of_retries|int
+  block:
+    - name: Run kubeadm reset (cleaning)
+      ansible.builtin.command: kubeadm reset -f
+
+    - name: Pause {{ kubeadmin_init_delay_between_retries|int }} seconds
+      ansible.builtin.pause:
+        seconds: "{{ kubeadmin_init_delay_between_retries|int }}"
+
+    - name: Try again running kubeadm init
+      ansible.builtin.include_tasks: kubeadm_init_first_node_k8s_controlplane_commands.yml
+
+- name: SUCCESS for kubeadm init {{ ansible_hostname }}
+  when:
+    - kubeadm_init_result is success
+    - kubeadminit_retry_count|int < kubeadmin_init_no_of_retries|int
+  block:
+    - name: Create directory /root/.kube
+      ansible.builtin.file:
+        path: /root/.kube
+        owner: root
+        group: root
+        mode: u+rwx,g-rwx,o-rwx
+        state: directory
+
+    - name: Copy kubernetes auth config for root user
+      ansible.builtin.copy:
+        remote_src: true
+        src: /etc/kubernetes/admin.conf
+        dest: /root/.kube/config
+        owner: root
+        group: root
+        mode: u+rw,g-rwx,o-rwx
+
+    - name: Set kubeadminit_retry_count to max value in order to exit loop
+      ansible.builtin.set_fact:
+        kubeadminit_retry_count: kubeadmin_init_no_of_retries|int + 1

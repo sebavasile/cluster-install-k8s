@@ -1,0 +1,6 @@
+---
+# handlers file for k8s_common
+- name: Restart crio
+  ansible.builtin.service:
+      name: "crio"
+      state: restarted

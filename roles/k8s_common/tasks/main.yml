@@ -1,0 +1,6 @@
+---
+- import_tasks: fix_ip_routes_for_vagrant_machines.yml
+- import_tasks: disable_selinux.yml
+- import_tasks: disable_swap.yml
+- import_tasks: install_utilities.yml
+- import_tasks: install_crio.yml

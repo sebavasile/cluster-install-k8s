@@ -1,0 +1,35 @@
+---
+- name: Get upload-cert output from first node
+  when: ansible_hostname in groups['k8s_controlplanes'][0]
+  ansible.builtin.command: kubeadm init phase upload-certs --upload-certs
+  register: kubernetes_uploadcert_command
+
+- name: Print upload-cert-command (DEBUG ONLY)
+  when: ansible_hostname in groups['k8s_controlplanes'][1]
+  ansible.builtin.debug:
+    var: "{{ hostvars[groups['k8s_controlplanes'][0]]['kubernetes_uploadcert_command'].stdout_lines[-1] | trim }}"
+
+- name: Get join command from first node
+  when: ansible_hostname in groups['k8s_controlplanes'][0]
+  ansible.builtin.command: kubeadm token create --print-join-command
+  register: kubernetes_join_command
+
+- name: Print join command (DEBUG ONLY)
+  when: ansible_hostname in groups['k8s_controlplanes'][1]
+  ansible.builtin.debug:
+    var: "{{ hostvars[groups['k8s_controlplanes'][0]]['kubernetes_join_command'].stdout }}"
+
+- name: "Run kubeadm join on {{ ansible_hostname }}"
+  when: inventory_hostname in groups['k8s_controlplanes'][1:]
+  throttle: 1
+  block:
+    - name: "Reset retry counter"
+      ansible.builtin.set_fact:
+        kubeadmjoin_retry_count: 1
+
+    - name: "Run kubeadm join up to {{kubeadmin_join_no_of_retries|int}} times on {{ ansible_hostname }}"
+      ansible.builtin.import_tasks: kubeadm_join_secondary_nodes_k8s_controlplane_commands.yml
+
+    - name: Debug
+      ansible.builtin.debug:
+        var: kubeadm_join_result.stdout
