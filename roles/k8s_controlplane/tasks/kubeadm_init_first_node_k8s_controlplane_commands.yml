@@ -1,7 +1,7 @@
 ---
-- name: Set kubeadminit_retry_count count
+- name: Set kubeadm_init_retry_count count
   ansible.builtin.set_fact:
-    kubeadminit_retry_count: "{{ 1 if kubeadminit_retry_count is undefined else kubeadminit_retry_count|int + 1 }}"
+    kubeadm_init_retry_count: "{{ 1 if kubeadm_init_retry_count is undefined else kubeadm_init_retry_count|int + 1 }}"
 
 # Determine if kubeadm did run on this node and it was a success
 - name: Check for the presence of /etc/kubernetes/admin.conf {{ ansible_hostname }}
@@ -29,15 +29,14 @@
   ansible.builtin.set_fact:
     kubeadm_ran_successfully: "{{ admin_conf.stat.exists and kubelet_status is succeeded and kubectl_node_status.rc == 0 }}"
 
-- name: Kubeadm already ran, set kubeadminit_retry_count to max value to exit loop
+- name: Kubeadm already ran, set kubeadm_init_retry_count to max value to exit loop
   when:
     - kubeadm_ran_successfully
   ansible.builtin.set_fact:
-    kubeadminit_retry_count: "{{ kubeadmin_init_no_of_retries|int + 1 }}"
-
+    kubeadm_init_retry_count: "{{ kubeadmin_init_no_of_retries|int + 1 }}"
 # End Determine if kubeadm did run on this node and it was a success
 
-- name: Run kubeadm init on first control plane {{ ansible_hostname }} kubeadminit_retry_count {{ kubeadminit_retry_count }} kubeadmin_init_no_of_retries {{ kubeadmin_init_no_of_retries }}
+- name: Run kubeadm init on first control plane {{ ansible_hostname }} kubeadm_init_retry_count {{ kubeadm_init_retry_count }} kubeadmin_init_no_of_retries {{ kubeadmin_init_no_of_retries }}
   ansible.builtin.command: kubeadm init --cri-socket unix:///var/run/crio/crio.sock \
             --apiserver-advertise-address="{{ default_network_interface_ip }}" \
             --control-plane-endpoint="{{ kube_apiserver_lb_ip }}:{{ kube_apiserver_lb_port }}" \
@@ -46,14 +45,15 @@
             --node-name "{{ ansible_hostname }}" \
             --upload-certs
   register: kubeadm_init_result
+  notify: Restart haproxy
   when:
-    - kubeadminit_retry_count|int <= kubeadmin_init_no_of_retries|int
+    - kubeadm_init_retry_count|int <= kubeadmin_init_no_of_retries|int
   ignore_errors: true
 
-- name: ERROR during kubeadm init, retry {{ kubeadminit_retry_count }}
+- name: ERROR during kubeadm init, retry {{ kubeadm_init_retry_count }}
   when:
     - kubeadm_init_result is failed  
-    - kubeadminit_retry_count|int < kubeadmin_init_no_of_retries|int
+    - kubeadm_init_retry_count|int < kubeadmin_init_no_of_retries|int
   block:
     - name: Run kubeadm reset (cleaning)
       ansible.builtin.command: kubeadm reset -f
@@ -65,10 +65,10 @@
     - name: Try again running kubeadm init
       ansible.builtin.include_tasks: kubeadm_init_first_node_k8s_controlplane_commands.yml
 
-- name: SUCCESS for kubeadm init {{ ansible_hostname }}
+- name: SUCCESS for kubeadm init, extra post init commands
   when:
     - kubeadm_init_result is success
-    - kubeadminit_retry_count|int < kubeadmin_init_no_of_retries|int
+    - kubeadm_init_retry_count|int < kubeadmin_init_no_of_retries|int
   block:
     - name: Create directory /root/.kube
       ansible.builtin.file:
@@ -87,6 +87,6 @@
         group: root
         mode: u+rw,g-rwx,o-rwx
 
-    - name: Set kubeadminit_retry_count to max value in order to exit loop
-      ansible.builtin.set_fact:
-        kubeadminit_retry_count: kubeadmin_init_no_of_retries|int + 1
+- name: Set kubeadm_init_retry_count to max value in order to exit loop
+  ansible.builtin.set_fact:
+    kubeadm_init_retry_count: "{{ kubeadmin_init_no_of_retries|int + 1 }}"

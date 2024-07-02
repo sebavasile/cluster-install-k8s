@@ -1,7 +1,7 @@
 ---
-- name: Set kubeadmjoin_retry_count count
+- name: Set kubeadm_join_retry_count count
   ansible.builtin.set_fact:
-    kubeadmjoin_retry_count: "{{ 1 if kubeadmjoin_retry_count is undefined else kubeadmjoin_retry_count|int + 1 }}"
+    kubeadm_join_retry_count: "{{ 1 if kubeadm_join_retry_count is undefined else kubeadm_join_retry_count|int + 1 }}"
 
 # Determine if kubeadm did run on this node and it was a success
 - name: Check for the presence of /etc/kubernetes/admin.conf {{ ansible_hostname }}
@@ -29,46 +29,80 @@
   ansible.builtin.set_fact:
     kubeadm_ran_successfully: "{{ admin_conf.stat.exists and kubelet_status is succeeded and kubectl_node_status.rc == 0 }}"
 
-- name: Kubeadm already ran, set kubeadmjoin_retry_count to max value to exit loop
+- name: Kubeadm already ran, set kubeadm_join_retry_count to max value to exit loop
   when:
     - kubeadm_ran_successfully
   ansible.builtin.set_fact:
-    kubeadmjoin_retry_count: "{{ kubeadmin_init_no_of_retries|int + 1 }}"
+    kubeadm_join_retry_count: "{{ kubeadmin_join_no_of_retries|int + 1 }}"
 # End Determine if kubeadm did run on this node and it was a success
 
-- name: Run kubeadm join on node {{ ansible_hostname }}
+- name: DEBUG - print kubeadm join command
+  ansible.builtin.debug:
+    msg: "{{ hostvars[groups['k8s_controlplanes'][0]]['kubernetes_join_command'].stdout }} --control-plane \
+            --cri-socket unix:///var/run/crio/crio.sock \
+            --apiserver-advertise-address=\"{{ default_network_interface_ip }}\" \
+            --certificate-key {{ hostvars[groups['k8s_controlplanes'][0]]['kubernetes_uploadcert_command'].stdout_lines[-1] | trim }} \
+            --node-name \"{{ ansible_hostname }}\" "
+
+- name: Run kubeadm join
   ansible.builtin.command: "{{ hostvars[groups['k8s_controlplanes'][0]]['kubernetes_join_command'].stdout }} --control-plane \
             --cri-socket unix:///var/run/crio/crio.sock \
             --apiserver-advertise-address=\"{{ default_network_interface_ip }}\" \
             --certificate-key {{ hostvars[groups['k8s_controlplanes'][0]]['kubernetes_uploadcert_command'].stdout_lines[-1] | trim }} \
             --node-name \"{{ ansible_hostname }}\" "
   register: kubeadm_join_result
+  notify: Restart haproxy
   when:
-    - kubeadmjoin_retry_count|int <= kubeadmin_join_no_of_retries|int
+    - kubeadm_join_retry_count|int <= kubeadmin_join_no_of_retries|int
   ignore_errors: true
 
 - name: kubeadm join error, running kubeadm reset
   ansible.builtin.command: kubeadm reset -f
   when: 
     - kubeadm_join_result is failed
-    - kubeadmjoin_retry_count|int < kubeadmin_join_no_of_retries|int
+    - kubeadm_join_retry_count|int < kubeadmin_join_no_of_retries|int
 
 - name: "kubeadm join error, pause {{ kubeadmin_join_delay_between_retries|int }} seconds"
   ansible.builtin.pause: 
     seconds: "{{ kubeadmin_join_delay_between_retries|int }}"
   when: 
     - kubeadm_join_result is failed
-    - kubeadmjoin_retry_count|int < kubeadmin_join_no_of_retries|int
+    - kubeadm_join_retry_count|int < kubeadmin_join_no_of_retries|int
 
 - name: Trying again to run kubeadm join
   ansible.builtin.include_tasks: kubeadm_join_secondary_nodes_k8s_controlplane_commands.yml
   when: 
     - kubeadm_join_result is failed
-    - kubeadmjoin_retry_count|int < kubeadmin_join_no_of_retries|int
+    - kubeadm_join_retry_count|int < kubeadmin_join_no_of_retries|int
 
-- name: kubeadm join success, set kubeadmjoin_retry_count to max value in order to exit loop
+- name: SUCCESS for kubeadm join, copy kubectl config for root
+  when:
+    - kubeadm_join_result is success
+    - kubeadm_join_retry_count|int < kubeadmin_join_no_of_retries|int
+  block:
+    - name: Create directory /root/.kube
+      ansible.builtin.file:
+        path: /root/.kube
+        owner: root
+        group: root
+        mode: u+rwx,g-rwx,o-rwx
+        state: directory
+
+    - name: Copy kubernetes auth config for root user
+      ansible.builtin.copy:
+        remote_src: true
+        src: /etc/kubernetes/admin.conf
+        dest: /root/.kube/config
+        owner: root
+        group: root
+        mode: u+rw,g-rwx,o-rwx
+
+    - name: Force all notified handlers to run at this point (for haproxy/keepalived restart)
+      ansible.builtin.meta: flush_handlers
+
+- name: kubeadm join success, set kubeadm_join_retry_count to max value in order to exit loop
   when: 
     - kubeadm_join_result is success
-    - kubeadmjoin_retry_count|int < kubeadmin_join_no_of_retries|int
+    - kubeadm_join_retry_count|int < kubeadmin_join_no_of_retries|int
   ansible.builtin.set_fact:
-    kubeadmjoin_retry_count: kubeadmin_join_no_of_retries|int
+    kubeadm_join_retry_count: "{{ kubeadmin_join_no_of_retries|int + 1 }}"

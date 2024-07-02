@@ -1,3 +1,3 @@
 ---
-default_network_interface_name: "eth1"
-default_network_interface_ip: "{{ vars['ansible_' ~ default_network_interface_name].ipv4.address }}"
+default_network_interface_name: "{{ ansible_default_ipv4.interface }}"
+default_network_interface_ip: "{{ ansible_default_ipv4.address|default(ansible_all_ipv4_addresses[0]) }}"

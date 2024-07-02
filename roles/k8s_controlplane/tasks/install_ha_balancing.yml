@@ -8,6 +8,7 @@
     state: present
 
 - name: Add firewalld rule for vrrp traffic
+  notify: Reload firewalld
   ansible.posix.firewalld:
     rich_rule: rule protocol value="vrrp" accept
     zone: public

@@ -1,4 +1,7 @@
 ---
+- name: Force all notified handlers to run at this point (for haproxy/keepalived restart)
+  ansible.builtin.meta: flush_handlers
+
 - name: Get upload-cert output from first node
   when: ansible_hostname in groups['k8s_controlplanes'][0]
   ansible.builtin.command: kubeadm init phase upload-certs --upload-certs
@@ -19,17 +22,17 @@
   ansible.builtin.debug:
     var: "{{ hostvars[groups['k8s_controlplanes'][0]]['kubernetes_join_command'].stdout }}"
 
-- name: "Run kubeadm join on {{ ansible_hostname }}"
+- name: "Run kubeadm join on remaining nodes"
   when: inventory_hostname in groups['k8s_controlplanes'][1:]
   throttle: 1
   block:
     - name: "Reset retry counter"
       ansible.builtin.set_fact:
-        kubeadmjoin_retry_count: 1
+        kubeadm_join_retry_count: 0
 
     - name: "Run kubeadm join up to {{kubeadmin_join_no_of_retries|int}} times on {{ ansible_hostname }}"
       ansible.builtin.import_tasks: kubeadm_join_secondary_nodes_k8s_controlplane_commands.yml
 
-    - name: Debug
+    - name: DEBUG ONLY - kubeadm join stdout
       ansible.builtin.debug:
         var: kubeadm_join_result.stdout

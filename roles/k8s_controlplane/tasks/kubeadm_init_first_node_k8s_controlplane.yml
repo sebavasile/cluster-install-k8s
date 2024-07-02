@@ -4,6 +4,7 @@
   ansible.builtin.import_tasks: kubeadm_init_first_node_k8s_controlplane_commands.yml
 
 # TODO: Maybe comment or delete?
-- name: Debug
+- name: DEBUG ONLY - kubeadm init stdout
   ansible.builtin.debug:
     var: kubeadm_init_result.stdout
+
