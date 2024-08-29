@@ -1,5 +1,7 @@
 ---
 - import_tasks: disable_selinux.yml
+- import_tasks: disable_firewalld.yml
 - import_tasks: disable_swap.yml
 - import_tasks: install_utilities.yml
 - import_tasks: install_crio.yml
+- import_tasks: install_k8s_services.yml

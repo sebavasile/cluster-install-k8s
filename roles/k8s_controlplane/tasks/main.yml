@@ -2,7 +2,5 @@
 # task file for control-plane deployment
 # TODO: uncomment
 - import_tasks: install_ha_balancing.yml
-- import_tasks: add_firewall_rules.yml
-- import_tasks: install_k8s_controlplane_services.yml
 - import_tasks: kubeadm_init_first_node_k8s_controlplane.yml
 - import_tasks: kubeadm_join_secondary_nodes_k8s_controlplane.yml

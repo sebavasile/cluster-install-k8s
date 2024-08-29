@@ -1,8 +1,40 @@
 ---
 # run all playbooks to boostrap the k8s cluster
+- import_playbook: k8s_common.yml
 - import_playbook: k8s_controlplane.yml
-#- import_playbook: k8s_worker.yml
+- import_playbook: k8s_worker.yml
+- import_playbook: k8s_core_deployments.yml
 
+#next steps to automate:
+#  - check current ansible initiates the cluster and the worker nodes are joining fine
 
+#  - install calico: download, edit file, run
+
+# kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml
+# curl https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/custom-resources.yaml -O
+# nano custom-resources.yml
+# kubectl create -f custom-resources.yaml
+
+#  - install helm
+
+# curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+# chmod 700 get_helm.sh
+# ./get_helm.sh
+
+#  - install dashboard
+
+# helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+# helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard --create-namespace --namespace kubernetes-dashboard
+
+#  - install metrics server
+
+# kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+#  - install prometheus, alertmanager
+
+#kubeadm init --cri-socket unix:///var/run/crio/crio.sock --apiserver-advertise-address=192.168.0.121 --control-plane-endpoint=192.168.0.150:443 --apiserver-cert-extra-sans=192.168.0.150 --pod-network-cidr=10.10.10.0/24 --node-name node1 --upload-certs
+
+# UTILS
+#kubectl get pods --all-namespaces -o wide --field-selector spec.nodeName=<node>
 
 

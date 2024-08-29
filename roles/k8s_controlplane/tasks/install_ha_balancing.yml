@@ -7,14 +7,16 @@
       - haproxy
     state: present
 
-- name: Add firewalld rule for vrrp traffic
-  notify: Reload firewalld
-  ansible.posix.firewalld:
-    rich_rule: rule protocol value="vrrp" accept
-    zone: public
-    permanent: true
-    immediate: true
-    state: enabled
+#TODO: delete completelly cause firewalld is disabled
+#- name: Add firewalld rule for vrrp traffic
+#  notify: Reload firewalld
+#  ignore_errors: true
+#  ansible.posix.firewalld:
+#    rich_rule: rule protocol value="vrrp" accept
+#    zone: public
+#    permanent: true
+#    immediate: true
+#    state: enabled
 
 - name: Create keepalived healthcheck script for kube-apiserver on control plane nodes
   when: inventory_hostname in groups['k8s_controlplanes']

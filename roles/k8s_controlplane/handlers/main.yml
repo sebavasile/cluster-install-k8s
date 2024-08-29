@@ -14,3 +14,8 @@
   ansible.builtin.service:
     name: "firewalld"
     state: restarted
+
+- name: Stop firewalld
+  ansible.builtin.service:
+    name: "firewalld"
+    state: stopped

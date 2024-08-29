@@ -1,0 +1,24 @@
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+networking:
+  dnsDomain: cluster.local
+  podSubnet: {{ pod_network_cidr }}
+  serviceSubnet: {{ service_network_cidr }}
+controlPlaneEndpoint: {{ kube_apiserver_lb_ip }}:{{ kube_apiserver_lb_port }}
+apiServer:
+  certSANs:
+    - {{ kube_apiserver_lb_ip }}
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: {{ default_network_interface_ip }}
+  bindPort: {{ kube_apiserver_port }}
+nodeRegistration:
+    criSocket: unix:///var/run/crio/crio.sock
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+serverTLSBootstrap: true
+
+

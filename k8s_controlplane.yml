@@ -4,6 +4,4 @@
   become: true
 
   roles:
-# TODO - uncomment
-    - k8s_common
     - k8s_controlplane

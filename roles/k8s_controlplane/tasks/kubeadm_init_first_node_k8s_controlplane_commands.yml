@@ -10,7 +10,7 @@
   register: admin_conf
   ignore_errors: true
 
-- name: Verify the kubelet service status {{ ansible_hostname }}
+- name: Verify the kubelet service status
   ansible.builtin.systemd:
     name: kubelet
     state: started
@@ -18,7 +18,7 @@
   register: kubelet_status
   ignore_errors: true
 
-- name: Kubectl check the node status {{ ansible_hostname }}
+- name: Kubectl check the node status
   ansible.builtin.command: kubectl get node {{ ansible_hostname }}
   register: kubectl_node_status
   failed_when: kubectl_node_status.rc != 0 and admin_conf.stat.exists
@@ -36,19 +36,27 @@
     kubeadm_init_retry_count: "{{ kubeadmin_init_no_of_retries|int + 1 }}"
 # End Determine if kubeadm did run on this node and it was a success
 
-- name: Run kubeadm init on first control plane {{ ansible_hostname }} kubeadm_init_retry_count {{ kubeadm_init_retry_count }} kubeadmin_init_no_of_retries {{ kubeadmin_init_no_of_retries }}
-  ansible.builtin.command: kubeadm init --cri-socket unix:///var/run/crio/crio.sock \
-            --apiserver-advertise-address="{{ default_network_interface_ip }}" \
-            --control-plane-endpoint="{{ kube_apiserver_lb_ip }}:{{ kube_apiserver_lb_port }}" \
-            --apiserver-cert-extra-sans="{{ kube_apiserver_lb_ip }}" \
-            --pod-network-cidr="{{ pod_network_subnet }}" \
+- name: Copy config file for kubeadm to enable signed kubelet serving certificates
+  ansible.builtin.template:
+    src: kubeadm_init_config.j2
+    dest: /tmp/kubeadm_init_config.yml
+
+- name: Run kubeadm init on primary control plane node {{ ansible_hostname }} kubeadm_init_retry_count {{ kubeadm_init_retry_count }} kubeadmin_init_no_of_retries {{ kubeadmin_init_no_of_retries }}
+  ansible.builtin.command: kubeadm init \ 
             --node-name "{{ ansible_hostname }}" \
-            --upload-certs
+            --upload-certs \ 
+            --config /tmp/kubeadm_init_config.yml
+
   register: kubeadm_init_result
   notify: Restart haproxy
   when:
     - kubeadm_init_retry_count|int <= kubeadmin_init_no_of_retries|int
   ignore_errors: true
+
+- name: Delete kubeadm config yml
+  ansible.builtin.file:
+    path: /tmp/kubeadm_init_config.yml
+    state: absent
 
 - name: ERROR during kubeadm init, retry {{ kubeadm_init_retry_count }}
   when:

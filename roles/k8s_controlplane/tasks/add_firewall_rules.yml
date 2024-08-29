@@ -1,17 +1,18 @@
----
-- name: Add firewall rules to allow traffic on master nodes
-  when: inventory_hostname in groups['k8s_controlplanes']
-  notify: Reload firewalld
-  ansible.posix.firewalld:
-    zone: public
-    service: "{{ item }}"
-    permanent: yes
-    state: enabled
-  loop:
-    - "kube-api"
-    - "kube-apiserver"
-    - "kube-control-plane"
-    - "kube-controller-manager"
-    - "kube-scheduler"
-    - "kubelet-worker"
-    - "https"
+#TODO: delete file completely
+#---
+#- name: Add firewall rules to allow traffic on master nodes
+#  when: inventory_hostname in groups['k8s_controlplanes']
+#  notify: Reload firewalld
+#  ansible.posix.firewalld:
+#    zone: public
+#    service: "{{ item }}"
+#    permanent: yes
+#    state: enabled
+#  loop:
+#    - "kube-api"
+#    - "kube-apiserver"
+#    - "kube-control-plane"
+#    - "kube-controller-manager"
+#    - "kube-scheduler"
+#    - "kubelet-worker"
+#    - "https"

@@ -1,0 +1,7 @@
+---
+- name: Install core deployments in the cluster, using kubectl on the first control plane node
+  hosts: k8s_controlplanes[0]
+  become: true
+
+  roles:
+    - k8s_core_deployments

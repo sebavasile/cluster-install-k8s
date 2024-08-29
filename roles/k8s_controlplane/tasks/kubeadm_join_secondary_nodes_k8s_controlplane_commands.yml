@@ -36,7 +36,7 @@
     kubeadm_join_retry_count: "{{ kubeadmin_join_no_of_retries|int + 1 }}"
 # End Determine if kubeadm did run on this node and it was a success
 
-- name: DEBUG - print kubeadm join command
+- name: DEBUG - print complete kubeadm join command on secondary control plane nodes
   ansible.builtin.debug:
     msg: "{{ hostvars[groups['k8s_controlplanes'][0]]['kubernetes_join_command'].stdout }} --control-plane \
             --cri-socket unix:///var/run/crio/crio.sock \
@@ -44,7 +44,7 @@
             --certificate-key {{ hostvars[groups['k8s_controlplanes'][0]]['kubernetes_uploadcert_command'].stdout_lines[-1] | trim }} \
             --node-name \"{{ ansible_hostname }}\" "
 
-- name: Run kubeadm join
+- name: Run kubeadm join command on secondary controlplane nodes kubeadm_join_retry_count {{ kubeadm_join_retry_count }} kubeadmin_join_no_of_retries {{ kubeadmin_join_no_of_retries }}
   ansible.builtin.command: "{{ hostvars[groups['k8s_controlplanes'][0]]['kubernetes_join_command'].stdout }} --control-plane \
             --cri-socket unix:///var/run/crio/crio.sock \
             --apiserver-advertise-address=\"{{ default_network_interface_ip }}\" \

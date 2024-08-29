@@ -2,5 +2,9 @@
 kubeadmin_init_no_of_retries: 3
 kubeadmin_init_delay_between_retries: 5
 
-kubeadmin_join_no_of_retries: 3
-kubeadmin_join_delay_between_retries: 5
+tigera_operator_url: "https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml"
+calico_custom_resources_url: "https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/custom-resources.yaml"
+
+metrics_server_url: "https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml"
+helm_install_script_url: "https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3"
+dashboard_helm_repo_url: "https://kubernetes.github.io/dashboard/"
